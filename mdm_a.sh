@@ -1,78 +1,68 @@
 cat > mdm_a.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
-echo "=== ANÁLISIS DETALLADO MEDIATEK MDM ==="
+echo "=== ANÁLISIS USANDO SOLO CMD ==="
 echo ""
 
-# Analizar cada paquete
+# 1. Listar todos los paquetes
+echo "1. TODOS LOS PAQUETES (primeros 30):"
+cmd package list packages | head -30
+
+echo ""
+echo "2. PAQUETES DE SISTEMA:"
+cmd package list packages -s | head -20
+
+echo ""
+echo "3. PAQUETES DESHABILITADOS:"
+cmd package list packages -d
+
+echo ""
+echo "4. ANALIZANDO PAQUETES MEDIATEK MDM:"
+
 for PKG in com.mediatek.mdmconfig com.mediatek.mdmlsample; do
-    echo "========================================"
-    echo "ANALIZANDO: $PKG"
-    echo "========================================"
+    echo "=== $PKG ==="
     
-    # 1. Información básica
-    echo "1. INFORMACIÓN BÁSICA:"
-    cmd package dump "$PKG" 2>/dev/null | grep -E "versionName|packageName|sharedUserId|installTime" | head -5
-    
-    # 2. Verificar si está activo como administrador
-    echo ""
-    echo "2. ¿ADMINISTRADOR ACTIVO?:"
-    if dumpsys device_policy | grep -q "$PKG"; then
-        echo "  ✓ SÍ - Es administrador de dispositivo"
-        dumpsys device_policy | grep -A3 -B3 "$PKG"
+    # Verificar si existe
+    if cmd package list packages | grep -q "$PKG"; then
+        echo "  ✓ Existe"
+        
+        # Ver estado
+        if cmd package list packages -e | grep -q "$PKG"; then
+            echo "  ✓ Habilitado"
+        elif cmd package list packages -d | grep -q "$PKG"; then
+            echo "  ✗ Deshabilitado"
+        fi
+        
+        # Ver información
+        echo "  Información del paquete:"
+        cmd package dump "$PKG" 2>/dev/null | grep -E "versionName|packageName" | head -2
+        
+        # Ver actividades
+        echo "  Actividad principal:"
+        cmd package dump "$PKG" 2>/dev/null | grep -B1 "android.intent.action.MAIN" | grep "activity name=" | head -1
+        
     else
-        echo "  ✗ NO - No aparece como admin activo"
+        echo "  ✗ No encontrado"
     fi
-    
-    # 3. Componentes principales
-    echo ""
-    echo "3. ACTIVIDADES PRINCIPALES:"
-    cmd package dump "$PKG" 2>/dev/null | grep -B1 "android.intent.action.MAIN" | grep "activity name=" | sed 's/.*activity name="//' | sed 's/".*//'
-    
-    # 4. Ver actividades exportadas
-    echo ""
-    echo "4. ACTIVIDADES EXPORTADAS (peligrosas):"
-    cmd package dump "$PKG" 2>/dev/null | grep -A2 "Activity {" | grep " exported=\"true\"" | head -5
-    
-    # 5. Servicios
-    echo ""
-    echo "5. SERVICIOS:"
-    cmd package dump "$PKG" 2>/dev/null | grep -B1 "Service {" | grep "  [a-z0-9]" | head -5
-    
-    # 6. Permisos peligrosos
-    echo ""
-    echo "6. PERMISOS PELIGROSOS:"
-    cmd package dump "$PKG" 2>/dev/null | grep "android.permission" | grep -iE "device_admin|manage_device|control|wipe|lock" | sort | uniq
-    
-    # 7. Estado actual del paquete
-    echo ""
-    echo "7. ESTADO:"
-    if cmd package list packages -e | grep -q "$PKG"; then
-        echo "  ✓ HABILITADO"
-    elif cmd package list packages -d | grep -q "$PKG"; then
-        echo "  ✗ DESHABILITADO"
-    else
-        echo "  ? ESTADO DESCONOCIDO"
-    fi
-    
-    # 8. Archivos APK
-    echo ""
-    echo "8. UBICACIÓN APK:"
-    pm path "$PKG" 2>/dev/null || cmd package path "$PKG" 2>/dev/null
-    
     echo ""
 done
 
-echo "========================================"
-echo "INFORMACIÓN DEL SISTEMA:"
-echo "========================================"
+echo "5. BUSCANDO OTROS ADMINS:"
+echo "   Paquetes con actividad de administrador de dispositivo:"
 
-# Ver políticas aplicadas
-echo "9. POLÍTICAS ACTIVAS:"
-dumpsys device_policy | grep -iE "password.*quality|camera.*disabled|storage.*encrypted|policy.*flags"
+# Listar todos los paquetes y buscar actividad DEVICE_ADMIN
+cmd package list packages | sed 's/package://' | while read pkg; do
+    if cmd package resolve-activity --brief -c android.intent.category.DEVICE_ADMIN "$pkg" 2>/dev/null | grep -q "$pkg"; then
+        echo "   - $pkg (tiene actividad DEVICE_ADMIN)"
+    fi
+done
 
-# Ver otros administradores potenciales
 echo ""
-echo "10. OTROS ADMINS POTENCIALES:"
-dumpsys device_policy | grep "AdminInfo" | grep -v "mediatek"
+echo "6. VERIFICANDO PERMISOS DE APPS CRÍTICAS:"
+for app in com.android.settings com.google.android.gms com.android.launcher3; do
+    if cmd package list packages | grep -q "$app"; then
+        echo "   $app existe"
+    fi
+done
 EOF
+

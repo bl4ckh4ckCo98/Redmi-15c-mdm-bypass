@@ -1,4 +1,4 @@
-cat > analyze_mediatek_mdm.sh << 'EOF'
+cat > mdm_a.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
 echo "=== ANÁLISIS DETALLADO MEDIATEK MDM ==="
@@ -76,6 +76,3 @@ echo ""
 echo "10. OTROS ADMINS POTENCIALES:"
 dumpsys device_policy | grep "AdminInfo" | grep -v "mediatek"
 EOF
-
-chmod +x analyze_mediatek_mdm.sh
-./analyze_mediatek_mdm.sh

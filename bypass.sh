@@ -1,4 +1,4 @@
-cat > simple_bypass.sh << 'EOF'
+cat > bypass.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
 echo "=== BYPASS SIMPLE SIN DUMPSYS ==="
